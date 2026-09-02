@@ -23,9 +23,6 @@ from tools.schemas import Document, PassportVLM, Page
 
 logger = logging.getLogger("pipeline_1.tools")
 
-DEFAULT_PDF_DPI = 150
-DEFAULT_MAX_PAGES = 8
-
 
 # ---------------------------------------------------------------------------
 # PaddleOCR
@@ -83,8 +80,8 @@ def build_ocr(
 
 def load_document(
     path: str,
-    dpi: int = DEFAULT_PDF_DPI,
-    max_pages: int = DEFAULT_MAX_PAGES,
+    dpi: int,
+    max_pages: int,
 ) -> Document:
     """Загружает документ (``.jpg`` или ``.pdf``) как набор страниц.
 
@@ -93,8 +90,8 @@ def load_document(
 
     Args:
         path: Путь к файлу.
-        dpi: DPI рендеринга для PDF (по умолчанию 150).
-        max_pages: Максимум страниц на документ (по умолчанию 8).
+        dpi: DPI рендеринга для PDF.
+        max_pages: Максимум страниц на документ.
 
     Returns:
         Экземпляр ``Document`` с одной или несколькими страницами.

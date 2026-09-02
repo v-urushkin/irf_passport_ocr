@@ -33,8 +33,6 @@ from typing import Any, Sequence
 
 from tools.schemas import Document
 from tools.tools import (
-    DEFAULT_MAX_PAGES,
-    DEFAULT_PDF_DPI,
     build_ocr,
     classify_orientation,
     load_document,
@@ -44,12 +42,7 @@ from tools.tools import (
 
 logger = logging.getLogger("pipeline_1")
 
-DEFAULT_PADDLE_MODELS = "models/PaddlePaddle"
-DEFAULT_INPUT = "data/passports"
 DOCUMENT_SUFFIXES = {".pdf", ".jpg", ".png"}
-DEFAULT_OUTPUT = "data/output"
-DEFAULT_VLM_MODEL = "qwen3.5:4b-q8_0"
-DEFAULT_LOG_DIR = "logs"
 
 
 # ---------------------------------------------------------------------------
@@ -109,21 +102,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "images",
         nargs="*",
-        default=[DEFAULT_INPUT],
+        default=["data/passports"],
         help="Пути к документам (.pdf/.jpg/.png) или директориям с ними "
-        f"(по умолчанию: {DEFAULT_INPUT}).",
+        "(по умолчанию: data/passports).",
     )
     parser.add_argument(
         "-o",
         "--output",
-        default=DEFAULT_OUTPUT,
-        help=f"Каталог для JSON-результатов (по умолчанию: {DEFAULT_OUTPUT}).",
+        default="data/output",
+        help="Каталог для JSON-результатов (по умолчанию: data/output).",
     )
     parser.add_argument(
         "--paddle-models",
-        default=DEFAULT_PADDLE_MODELS,
+        default="models/PaddlePaddle",
         help="Каталог с локальными моделями PaddleOCR "
-        f"(по умолчанию: {DEFAULT_PADDLE_MODELS}).",
+        "(по умолчанию: models/PaddlePaddle).",
     )
     parser.add_argument(
         "--lang",
@@ -144,22 +137,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--vlm-model",
-        default=DEFAULT_VLM_MODEL,
+        default="qwen3.5:4b-q8_0",
         help="Локальная ollama-модель для шага 2 (VLM) "
-        f"(по умолчанию: {DEFAULT_VLM_MODEL}).",
+        "(по умолчанию: qwen3.5:4b-q8_0).",
     )
     parser.add_argument(
         "--pdf-dpi",
         type=int,
-        default=DEFAULT_PDF_DPI,
+        default=150,
         help="DPI рендеринга PDF-страниц (по умолчанию: 150).",
     )
     parser.add_argument(
         "--max-pages",
         type=int,
-        default=DEFAULT_MAX_PAGES,
-        help="Максимум обрабатываемых страниц документа "
-        f"(по умолчанию: {DEFAULT_MAX_PAGES}).",
+        default=8,
+        help="Максимум обрабатываемых страниц документа (по умолчанию: 8).",
     )
     parser.add_argument(
         "--min-ocr-texts",
@@ -170,9 +162,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--log-dir",
-        default=DEFAULT_LOG_DIR,
-        help="Каталог для файлов логов "
-        f"(по умолчанию: {DEFAULT_LOG_DIR}).",
+        default="logs",
+        help="Каталог для файлов логов (по умолчанию: logs).",
     )
     return parser
 
