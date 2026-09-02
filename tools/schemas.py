@@ -63,8 +63,8 @@ class PassportVLM(BaseModel):
         passport_issued_by: Кем выдан паспорт («Паспорт выдан»).
         issue_date: Дата выдачи, ``dd.mm.yyyy`` (или ``""``).
         department_code: Код подразделения, ``XXX-XXX`` (или ``""``).
-        series: Серия паспорта, 4 цифры (или ``""``).
-        number: Номер паспорта, 6 цифр (или ``""``).
+        series: Серия паспорта, только цифры (или ``""``).
+        number: Номер паспорта, только цифры (или ``""``).
         surname: Фамилия.
         first_name: Имя.
         patronymic: Отчество (``""``, если отсутствует).
@@ -79,8 +79,8 @@ class PassportVLM(BaseModel):
     passport_issued_by: str
     issue_date: Annotated[str, Field(pattern=r"^(?:\d{2}\.\d{2}\.\d{4})?$")]
     department_code: Annotated[str, Field(pattern=r"^(?:\d{3}-\d{3})?$")]
-    series: Annotated[str, Field(pattern=r"^(?:\d{4})?$")]
-    number: Annotated[str, Field(pattern=r"^(?:\d{6})?$")]
+    series: Annotated[str, Field(pattern=r"^\d*$")]
+    number: Annotated[str, Field(pattern=r"^\d*$")]
     surname: str
     first_name: str
     patronymic: str
