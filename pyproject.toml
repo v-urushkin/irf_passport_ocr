@@ -1,0 +1,18 @@
+[project]
+name = "irf_passport_ocr"
+version = "0.1.0"
+description = "Pipeline for OCR RF inner passport"
+readme = "README.md"
+requires-python = ">=3.14.5"
+dependencies = [
+    "numpy==2.3.5",
+    "ollama>=0.6.2",
+    "paddleocr==3.7.0",
+    "pandas>=3.0.5",
+    "pydantic>=2.13.4",
+    "pypdfium2>=5.12.1",
+    "setuptools>=83.0.0",
+    "torch>=2.13.0",
+    "torchvision>=0.28.0",
+    "wheel>=0.47.0",
+]
