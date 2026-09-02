@@ -6,7 +6,8 @@
 MRZ один на паспорт, поэтому извлекается и валидируется на уровне
 документа — с первой страницы, где найден якорь MRZ.
 
-Этап 2: локальная VLM (ollama, по умолчанию ``qwen3.5:4b-q8_0``)
+Этап 2: VLM (бэкенд ``--vlm-backend``: нативная ollama или
+OpenAI-совместимый эндпоинт; модель по умолчанию ``qwen3.5:4b-q8_0``)
 получает все развёрнутые страницы документа одним запросом и извлекает
 поля «Паспорт выдан», «Место рождения» и «Место регистрации» —
 последнюю актуальную регистрацию, т.е. без отметки «Снят
@@ -25,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -97,7 +99,10 @@ def build_parser() -> argparse.ArgumentParser:
         Настроенный ArgumentParser.
     """
     parser = argparse.ArgumentParser(
-        description="Пайплайн OCR документов (PaddleOCR + Qwen через ollama).",
+        description=(
+            "Пайплайн OCR документов "
+            "(PaddleOCR + VLM: ollama или OpenAI-совместимый эндпоинт)."
+        ),
     )
     parser.add_argument(
         "images",
@@ -138,8 +143,27 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--vlm-model",
         default="qwen3.5:4b-q8_0",
-        help="Локальная ollama-модель для шага 2 (VLM) "
-        "(по умолчанию: qwen3.5:4b-q8_0).",
+        help="Модель VLM для шага 2 (по умолчанию: qwen3.5:4b-q8_0).",
+    )
+    parser.add_argument(
+        "--vlm-backend",
+        choices=["ollama", "openai_like_endpoint"],
+        default="ollama",
+        help="Бэкенд шага 2 (VLM): нативная ollama или любой "
+        "OpenAI-совместимый эндпоинт (по умолчанию: ollama).",
+    )
+    parser.add_argument(
+        "--vlm-base-url",
+        default="http://localhost:11434/v1",
+        help="Base URL OpenAI-совместимого API для "
+        "--vlm-backend openai_like_endpoint "
+        "(по умолчанию: http://localhost:11434/v1 — локальная ollama).",
+    )
+    parser.add_argument(
+        "--vlm-api-key",
+        default=None,
+        help="API-ключ для --vlm-backend openai_like_endpoint; по умолчанию "
+        "берётся из OPENAI_API_KEY, иначе 'ollama' (ollama ключ игнорирует).",
     )
     parser.add_argument(
         "--pdf-dpi",
@@ -224,7 +248,7 @@ def save_result(doc: Document, output_path: Path) -> None:
         ],
         "mrz": doc.mrz,
         "vlm": doc.vlm,
-        "vlm_ollama_meta": doc.vlm_meta,
+        "vlm_meta": doc.vlm_meta,
         "timings": doc.timings,
     }
     output_path.write_text(
@@ -270,6 +294,10 @@ def main(argv: Sequence[str] | None = None) -> None:
         logger.warning("Документы не найдены (.pdf/.jpg/.png)")
         return
 
+    vlm_api_key = (
+        args.vlm_api_key or os.environ.get("OPENAI_API_KEY") or "ollama"
+    )
+
     for path in docs:
         stem = Path(path).stem
         logger.info(f"=== {path} ===")
@@ -293,9 +321,17 @@ def main(argv: Sequence[str] | None = None) -> None:
         else:
             logger.info("MRZ: не найден")
 
-        logger.info(f"VLM ({args.vlm_model})...")
+        logger.info(f"VLM ({args.vlm_backend}:{args.vlm_model})...")
         t_vlm = perf_counter()
-        process_vlm(doc, args.vlm_model, stem, min_texts=args.min_ocr_texts)
+        process_vlm(
+            doc,
+            args.vlm_model,
+            stem,
+            min_texts=args.min_ocr_texts,
+            backend=args.vlm_backend,
+            base_url=args.vlm_base_url,
+            api_key=vlm_api_key,
+        )
         doc.timings["vlm_elapsed_sec"] = perf_counter() - t_vlm
         doc.timings["total_elapsed_sec"] = perf_counter() - t_start
         if doc.vlm and "error" not in doc.vlm:

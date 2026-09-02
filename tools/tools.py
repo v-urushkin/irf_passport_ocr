@@ -10,10 +10,12 @@ import base64
 import io
 import logging
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import ollama
 import pypdfium2 as pdfium
+from openai import OpenAI
 from paddleocr import PaddleOCR
 from PIL import Image
 
@@ -183,7 +185,15 @@ def process_mrz(doc: Document) -> None:
     doc.mrz = None
 
 
-def process_vlm(doc: Document, model: str, stem: str, min_texts: int = 2) -> None:
+def process_vlm(
+    doc: Document,
+    model: str,
+    stem: str,
+    min_texts: int = 2,
+    backend: str = "ollama",
+    base_url: str | None = None,
+    api_key: str | None = None,
+) -> None:
     """Извлекает поля паспорта через VLM по всем страницам сразу.
 
     Все развёрнутые страницы документа передаются одним запросом:
@@ -193,16 +203,22 @@ def process_vlm(doc: Document, model: str, stem: str, min_texts: int = 2) -> Non
     запроса как неинформативные (в ``doc.pages`` сохраняются). Если
     информативных страниц нет, VLM-запрос пропускается и ``doc.vlm``
     остаётся ``None``. Результат (или ошибка) попадает в ``doc.vlm``
-    и сохраняется в общий ``{stem}.json``. Метрики ollama (число
-    токенов и длительности prefill/генерации) попадают в
-    ``doc.vlm_meta``.
+    и сохраняется в общий ``{stem}.json``. Метрики запроса (число
+    токенов; длительности prefill/генерации, если бэкенд их отдаёт)
+    попадают в ``doc.vlm_meta``.
 
     Args:
         doc: Документ с развёрнутыми ``image`` у страниц.
-        model: Имя ollama-модели.
+        model: Имя VLM-модели.
         stem: Базовое имя для логирования.
         min_texts: Порог: страницы с числом распознанных строк не
             более этого значения исключаются из VLM-запроса.
+        backend: Бэкенд VLM: 'ollama' — нативное API ollama;
+            'openai_like_endpoint' — любой OpenAI-совместимый API.
+        base_url: Base URL OpenAI-совместимого API (только для
+            'openai_like_endpoint').
+        api_key: API-ключ OpenAI-совместимого API (только для
+            'openai_like_endpoint'; ollama ключ игнорирует).
     """
     pages = [p for p in doc.pages if len(p.ocr_texts) > min_texts]
     if len(pages) < len(doc.pages):
@@ -218,42 +234,21 @@ def process_vlm(doc: Document, model: str, stem: str, min_texts: int = 2) -> Non
         base64.b64encode(_image_to_bytes(p.image)).decode() for p in pages
     ]
 
+    content: str | None = None
+    meta: dict[str, Any] | None = None
     try:
-        response = ollama.chat(
-            model=model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": PASSPORT_VLM_PROMPT,
-                    "images": images,
-                }
-            ],
-            format=PassportVLM.model_json_schema(),
-            think=False,
-            options={"temperature": 0},
-        )
-        result = PassportVLM.model_validate_json(response.message.content)
+        if backend == "openai_like_endpoint":
+            content, meta = _chat_openai(model, images, base_url, api_key)
+        else:
+            content, meta = _chat_ollama(model, images)
+        result = PassportVLM.model_validate_json(content)
         doc.vlm = result.model_dump()
     except Exception as e:
-        raw = response.message.content if "response" in locals() else None
-        doc.vlm = {"error": str(e), "raw": raw}
+        doc.vlm = {"error": str(e), "raw": content}
         logger.warning(f"{stem}: не удалось извлечь VLM-поля — {e}")
 
-    if "response" in locals():
-        doc.vlm_meta = {
-            "n_tokens_sent": response.prompt_eval_count,
-            "n_tokens_generated": response.eval_count,
-            "prefill_elapsed_sec": (
-                response.prompt_eval_duration / 1e9
-                if response.prompt_eval_duration is not None
-                else None
-            ),
-            "generation_elapsed_sec": (
-                response.eval_duration / 1e9
-                if response.eval_duration is not None
-                else None
-            ),
-        }
+    if meta is not None:
+        doc.vlm_meta = meta
 
 
 # ---------------------------------------------------------------------------
@@ -277,3 +272,105 @@ def _image_to_bytes(image: Image.Image) -> bytes:
     buf = io.BytesIO()
     image.save(buf, format="JPEG", quality=95)
     return buf.getvalue()
+
+
+def _chat_ollama(model: str, images: list[str]) -> tuple[str, dict[str, Any]]:
+    """Отправляет VLM-запрос через нативное API ollama.
+
+    Args:
+        model: Имя ollama-модели.
+        images: Изображения (JPEG) в base64.
+
+    Returns:
+        Кортеж (текст ответа модели, метрики запроса).
+    """
+    response = ollama.chat(
+        model=model,
+        messages=[
+            {
+                "role": "user",
+                "content": PASSPORT_VLM_PROMPT,
+                "images": images,
+            }
+        ],
+        format=PassportVLM.model_json_schema(),
+        think=False,
+        options={"temperature": 0},
+    )
+    meta = {
+        "n_tokens_sent": response.prompt_eval_count,
+        "n_tokens_generated": response.eval_count,
+        "prefill_elapsed_sec": (
+            response.prompt_eval_duration / 1e9
+            if response.prompt_eval_duration is not None
+            else None
+        ),
+        "generation_elapsed_sec": (
+            response.eval_duration / 1e9
+            if response.eval_duration is not None
+            else None
+        ),
+    }
+    return response.message.content, meta
+
+
+def _chat_openai(
+    model: str,
+    images: list[str],
+    base_url: str | None,
+    api_key: str | None,
+) -> tuple[str, dict[str, Any]]:
+    """Отправляет VLM-запрос через OpenAI-совместимый API.
+
+    Structured output через ``response_format`` c JSON-схемой;
+    ``reasoning_effort='none'`` отключает рассуждения модели —
+    аналог ``think=False`` нативного API ollama.
+
+    Args:
+        model: Имя модели на эндпоинте.
+        images: Изображения (JPEG) в base64.
+        base_url: Base URL API (например, ``http://localhost:11434/v1``).
+        api_key: API-ключ (локальная ollama ключ игнорирует).
+
+    Returns:
+        Кортеж (текст ответа модели, метрики запроса).
+    """
+    client = OpenAI(base_url=base_url, api_key=api_key)
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": PASSPORT_VLM_PROMPT},
+                    *[
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image}"
+                            },
+                        }
+                        for image in images
+                    ],
+                ],
+            }
+        ],
+        temperature=0,
+        reasoning_effort="none",
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "passport_vlm",
+                "schema": PassportVLM.model_json_schema(),
+                "strict": False,
+            },
+        },
+    )
+    usage = response.usage
+    meta = {
+        "n_tokens_sent": usage.prompt_tokens if usage else None,
+        "n_tokens_generated": usage.completion_tokens if usage else None,
+        "prefill_elapsed_sec": None,
+        "generation_elapsed_sec": None,
+    }
+    return response.choices[0].message.content, meta

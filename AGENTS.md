@@ -3,7 +3,8 @@
 ## Project
 OCR pipeline for Russian internal passports: PaddleOCR (PP-OCRv6, local
 safetensors) per page -> MRZ validation (one per document) -> one VLM call
-(local ollama) extracting issued_by / birth_place / registration_address.
+(native ollama or any OpenAI-compatible endpoint) extracting
+issued_by / birth_place / registration_address.
 
 ## Public repository
 This repo is PUBLIC. Never put private or personal information — real
@@ -23,7 +24,13 @@ Inputs and outputs live only in gitignored dirs (`data/`, `logs/`).
   `PP-OCRv6_medium_det_safetensors`, `PP-OCRv6_medium_rec_safetensors`
   (present on this machine; NOT in the repo — no download script exists).
   Pipeline fails at `build_ocr` without them.
-- ollama server running with `qwen3.5:4b-q8_0` pulled.
+- VLM backend, one of:
+  - ollama server running with `qwen3.5:4b-q8_0` pulled
+    (default `--vlm-backend ollama`); or
+  - any OpenAI-compatible endpoint via
+    `--vlm-backend openai_like_endpoint` (default `--vlm-base-url`
+    http://localhost:11434/v1 points at local ollama; API key:
+    `--vlm-api-key` or env `OPENAI_API_KEY`, fallback `ollama`).
 
 ## Layout
 - `main.py` — CLI entrypoint (argparse only; no config files by design)

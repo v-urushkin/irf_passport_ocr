@@ -2,8 +2,8 @@
 
 Двухэтапный пайплайн: классический OCR (PaddleOCR, PP-OCRv6) выравнивает
 страницы и распознаёт текст, MRZ валидируется на уровне документа, а
-локальная VLM (ollama) одним запросом по информативным страницам
-извлекает ключевые поля паспорта.
+VLM (ollama или OpenAI-совместимый эндпоинт) одним запросом по
+информативным страницам извлекает ключевые поля паспорта.
 
 ## Этапы
 
@@ -24,7 +24,9 @@
    ≤ `--min-ocr-texts` исключаются). VLM извлекает поля «Паспорт выдан»,
    «Место рождения» и «Место регистрации» — последнюю актуальную
    регистрацию без отметки «Снят с регистрационного учета».
-   Structured output по pydantic-схеме, `temperature=0`.
+   Structured output по pydantic-схеме, `temperature=0`. Бэкенд —
+   `--vlm-backend`: нативная ollama или любой OpenAI-совместимый
+   эндпоинт (`openai_like_endpoint`).
 
 ## CLI-аргументы
 
@@ -36,7 +38,10 @@
 | `--lang` | `ru` | Язык распознавания PaddleOCR |
 | `--det-limit-side-len` | `1280` | Ограничение стороны изображения для детекции текста |
 | `--det-limit-type` | `max` | Тип ограничения стороны детекции |
-| `--vlm-model` | `qwen3.5:4b-q8_0` | Локальная ollama-модель для шага VLM |
+| `--vlm-model` | `qwen3.5:4b-q8_0` | Модель VLM для шага 2 (для обоих бэкендов) |
+| `--vlm-backend` | `ollama` | Бэкенд VLM: `ollama` (нативное API) или `openai_like_endpoint` (OpenAI-совместимый API) |
+| `--vlm-base-url` | `http://localhost:11434/v1` | Base URL OpenAI-совместимого API (для `openai_like_endpoint`) |
+| `--vlm-api-key` | `OPENAI_API_KEY` → `ollama` | API-ключ для `openai_like_endpoint` (локальная ollama ключ игнорирует) |
 | `--pdf-dpi` | `150` | DPI рендеринга PDF-страниц |
 | `--max-pages` | `8` | Максимум обрабатываемых страниц документа |
 | `--min-ocr-texts` | `2` | Страницы с ≤N распознанных строк исключаются из VLM-запроса |
@@ -47,6 +52,11 @@
 ```bash
 uv run main.py                     # все документы из data/passports
 uv run main.py data/passports_small  # конкретная директория
+# VLM через OpenAI-совместимый эндпоинт (по умолчанию — локальная ollama):
+uv run main.py --vlm-backend openai_like_endpoint
+# VLM через удалённый эндпоинт (ключ в OPENAI_API_KEY):
+OPENAI_API_KEY=sk-... uv run main.py --vlm-backend openai_like_endpoint \
+  --vlm-base-url https://api.example.com/v1 --vlm-model qwen3.5-vl
 ```
 
 ## Выходной JSON
@@ -66,7 +76,7 @@ uv run main.py data/passports_small  # конкретная директория
     "birth_place": "...",
     "registration_address": "..."
   },
-  "vlm_ollama_meta": {
+  "vlm_meta": {
     "n_tokens_sent": 6084,
     "n_tokens_generated": 85,
     "prefill_elapsed_sec": 60.7,
