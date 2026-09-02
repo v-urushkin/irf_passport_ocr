@@ -31,7 +31,7 @@
 | Аргумент | Дефолт | Назначение |
 |---|---|---|
 | `images` (позиционный) | `data/passports` | Документы (`.pdf`/`.jpg`/`.png`) или директории с ними |
-| `-o`, `--output` | `data/p1_output` | Каталог для JSON-результатов |
+| `-o`, `--output` | `data/output` | Каталог для JSON-результатов |
 | `--paddle-models` | `models/PaddlePaddle` | Каталог с локальными моделями PaddleOCR |
 | `--lang` | `ru` | Язык распознавания PaddleOCR |
 | `--det-limit-side-len` | `1280` | Ограничение стороны изображения для детекции текста |

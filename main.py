@@ -47,7 +47,7 @@ logger = logging.getLogger("pipeline_1")
 DEFAULT_PADDLE_MODELS = "models/PaddlePaddle"
 DEFAULT_INPUT = "data/passports"
 DOCUMENT_SUFFIXES = {".pdf", ".jpg", ".png"}
-DEFAULT_OUTPUT = "data/p1_output"
+DEFAULT_OUTPUT = "data/output"
 DEFAULT_VLM_MODEL = "qwen3.5:4b-q8_0"
 DEFAULT_LOG_DIR = "logs"
 
