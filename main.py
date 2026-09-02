@@ -9,10 +9,10 @@ MRZ один на паспорт, поэтому извлекается и ва�
 Этап 2: VLM (бэкенд ``--vlm-backend``: нативная ollama или
 OpenAI-совместимый эндпоинт; модель по умолчанию ``qwen3.5:4b-q8_0``)
 получает все развёрнутые страницы документа одним запросом и извлекает
-поля «Паспорт выдан», «Место рождения» и «Место регистрации» —
-последнюю актуальную регистрацию, т.е. без отметки «Снят
-с регистрационного учета» (регистраций в паспорте может быть
-несколько на разных страницах).
+13 полей паспорта: серия, номер, ФИО, пол, даты рождения и выдачи,
+код подразделения, кем выдан, место рождения и последнюю актуальную
+регистрацию — без отметки «Снят с регистрационного учета»
+(регистраций в паспорте может быть несколько на разных страницах).
 
 На вход подаются директории (все ``.pdf``/``.jpg``/``.png`` верхнего
 уровня) и/или отдельные файлы (каждая страница — отдельное
@@ -335,9 +335,11 @@ def main(argv: Sequence[str] | None = None) -> None:
         doc.timings["vlm_elapsed_sec"] = perf_counter() - t_vlm
         doc.timings["total_elapsed_sec"] = perf_counter() - t_start
         if doc.vlm and "error" not in doc.vlm:
-            logger.info(f"выдан: {doc.vlm['issued_by']!r}")
-            logger.info(f"место рождения: {doc.vlm['birth_place']!r}")
-            logger.info(f"адрес: {doc.vlm['registration_address']!r}")
+            logger.info(
+                "паспорт: {series} {number} — {surname} "
+                "{first_name} {patronymic}".format(**doc.vlm)
+            )
+            logger.info(f"адрес: {doc.vlm['last_registration']!r}")
 
         out_path = output_dir / f"{stem}.json"
         save_result(doc, out_path)

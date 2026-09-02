@@ -3,8 +3,9 @@
 ## Project
 OCR pipeline for Russian internal passports: PaddleOCR (PP-OCRv6, local
 safetensors) per page -> MRZ validation (one per document) -> one VLM call
-(native ollama or any OpenAI-compatible endpoint) extracting
-issued_by / birth_place / registration_address.
+(native ollama or any OpenAI-compatible endpoint) extracting the full
+13-field passport record (series/number, names, gender, dates, issue
+data, birth_place, last_registration).
 
 ## Public repository
 This repo is PUBLIC. Never put private or personal information — real

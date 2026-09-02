@@ -21,9 +21,10 @@ VLM (ollama или OpenAI-совместимый эндпоинт) одним з
    в результат пишется заглушка с `valid: false` и причиной.
 5. **VLM — один запрос на документ.** Все информативные страницы
    отправляются вместе (страницы с числом распознанных строк
-   ≤ `--min-ocr-texts` исключаются). VLM извлекает поля «Паспорт выдан»,
-   «Место рождения» и «Место регистрации» — последнюю актуальную
-   регистрацию без отметки «Снят с регистрационного учета».
+   ≤ `--min-ocr-texts` исключаются). VLM извлекает 13 полей паспорта:
+   серия, номер, ФИО, пол, даты рождения и выдачи, код подразделения,
+   кем выдан, место рождения и последняя актуальная регистрация
+   (без отметки «Снят с регистрационного учета»).
    Structured output по pydantic-схеме, `temperature=0`. Бэкенд —
    `--vlm-backend`: нативная ollama или любой OpenAI-совместимый
    эндпоинт (`openai_like_endpoint`).
@@ -72,9 +73,18 @@ OPENAI_API_KEY=sk-... uv run main.py --vlm-backend openai_like_endpoint \
   ],
   "mrz": {"valid": true, "...": "..."},
   "vlm": {
-    "issued_by": "...",
+    "passport_issued_by": "...",
+    "issue_date": "...",
+    "department_code": "...",
+    "series": "...",
+    "number": "...",
+    "surname": "...",
+    "first_name": "...",
+    "patronymic": "...",
+    "gender": "...",
+    "birth_date": "...",
     "birth_place": "...",
-    "registration_address": "..."
+    "last_registration": "..."
   },
   "vlm_meta": {
     "n_tokens_sent": 6084,
