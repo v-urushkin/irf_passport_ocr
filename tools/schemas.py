@@ -60,7 +60,7 @@ class PassportVLM(BaseModel):
     допускают пустую строку ``""`` — признак «поле не найдено».
 
     Attributes:
-        passport_issued_by: Кем выдан паспорт («Паспорт выдан»).
+        issued_by: Кем выдан паспорт («Паспорт выдан»).
         issue_date: Дата выдачи, ``dd.mm.yyyy`` (или ``""``).
         department_code: Код подразделения, ``XXX-XXX`` (или ``""``).
         series: Серия паспорта, только цифры (или ``""``).
@@ -76,14 +76,14 @@ class PassportVLM(BaseModel):
             ``""``, если актуальных регистраций нет.
     """
 
-    passport_issued_by: str
+    issued_by: str
     issue_date: Annotated[str, Field(pattern=r"^(?:\d{2}\.\d{2}\.\d{4})?$")]
     department_code: Annotated[str, Field(pattern=r"^(?:\d{3}-\d{3})?$")]
     series: Annotated[str, Field(pattern=r"^\d*$")]
     number: Annotated[str, Field(pattern=r"^\d*$")]
     surname: str
-    first_name: str
     patronymic: str
+    first_name: str
     gender: Literal["МУЖ.", "ЖЕН.", ""]
     birth_date: Annotated[str, Field(pattern=r"^(?:\d{2}\.\d{2}\.\d{4})?$")]
     birth_place: str
